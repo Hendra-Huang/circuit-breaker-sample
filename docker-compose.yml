@@ -1,0 +1,46 @@
+version: "2"
+services:
+    A:
+        build:
+            context: ./A
+        image: "service-a"
+        container_name: "service-a"
+        ports:
+            - "1111:1111"
+        mem_limit: 10M
+
+    B:
+        build:
+            context: ./B
+        image: "service-b"
+        container_name: "service-b"
+        ports:
+            - "2222:2222"
+        mem_limit: 10M
+
+    C:
+        build:
+            context: ./C
+        image: "service-c"
+        container_name: "service-c"
+        ports:
+            - "3333:3333"
+        mem_limit: 10M
+
+    prometheus:
+        image: "quay.io/prometheus/prometheus:latest"
+        container_name: prometheus
+        ports:
+            - "9090:9090"
+        volumes:
+            - "./prometheus.yml:/etc/prometheus/prometheus.yml"
+
+    grafana:
+        image: "grafana/grafana:latest"
+        container_name: grafana
+        ports:
+            - "3000:3000"
+        volumes:
+            - "/home/nakama/grafana_db:/var/lib/grafana"
+        environment:
+            GF_SECURITY_ADMIN_PASSWORD: admin
