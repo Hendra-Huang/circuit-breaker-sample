@@ -49,7 +49,17 @@ func main() {
 			}
 		}(time.Now())
 
-		time.Sleep(time.Millisecond * time.Duration(*delay))
+		stopChannel := time.After(time.Millisecond * time.Duration(*delay))
+	myLoop:
+		for {
+			select {
+			case <-stopChannel:
+				break myLoop
+			default:
+				time.Sleep(time.Microsecond * 5)
+			}
+		}
+
 		log.Println("world", *delay)
 		fmt.Fprintf(w, "world")
 	})

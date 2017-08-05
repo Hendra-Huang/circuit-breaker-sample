@@ -1,4 +1,4 @@
-version: "2"
+version: "2.2"
 services:
     A:
         build:
@@ -7,7 +7,8 @@ services:
         container_name: "service-a"
         ports:
             - "1111:1111"
-        mem_limit: 10M
+        mem_limit: 15M
+        cpu_quota: 10000
 
     B:
         build:
@@ -16,7 +17,8 @@ services:
         container_name: "service-b"
         ports:
             - "2222:2222"
-        mem_limit: 10M
+        mem_limit: 15M
+        cpu_quota: 10000
 
     C:
         build:
@@ -25,7 +27,19 @@ services:
         container_name: "service-c"
         ports:
             - "3333:3333"
-        mem_limit: 10M
+        mem_limit: 15M
+        cpu_quota: 5000
+
+    cadvisor:
+        image: "google/cadvisor:v0.25.0"
+        container_name: cadvisor
+        ports:
+            - "8080:8080"
+        volumes:
+            - "/:/rootfs:ro"
+            - "/var/run:/var/run:rw"
+            - "/sys:/sys:ro"
+            - "/var/lib/docker/:/var/lib/docker:ro"
 
     prometheus:
         image: "quay.io/prometheus/prometheus:latest"
