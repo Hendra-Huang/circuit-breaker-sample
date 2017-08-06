@@ -27,7 +27,7 @@ services:
         container_name: "service-c"
         ports:
             - "3333:3333"
-        mem_limit: 15M
+        mem_limit: 10M
         cpu_quota: 5000
 
     cadvisor:

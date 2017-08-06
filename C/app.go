@@ -24,7 +24,7 @@ func init() {
 		Namespace: "C",
 		Name:      "handler_request_milisecond",
 		Help:      "Average of handler response time",
-	}, []string{"handler", "method"})
+	}, []string{"handler", "method", "httpCode"})
 	if err := prometheus.Register(prometheusSummaryVec); err != nil {
 		log.Printf("Failed to register prometheus metrics: %s", err.Error())
 	}
@@ -34,9 +34,9 @@ func main() {
 	http.Handle("/metrics", prometheus.Handler())
 
 	http.HandleFunc("/world", func(w http.ResponseWriter, r *http.Request) {
-		log.Println("GET")
 		ctx := r.Context()
 		r = r.WithContext(ctx)
+		httpCode := "500"
 
 		defer func(timeStart time.Time) {
 			pattern := "/world"
@@ -44,8 +44,7 @@ func main() {
 
 			// prometheus
 			if prometheusSummaryVec != nil {
-				prometheusSummaryVec.With(prometheus.Labels{"handler": "all", "method": method}).Observe(time.Since(timeStart).Seconds() * 1000)
-				prometheusSummaryVec.With(prometheus.Labels{"handler": pattern, "method": method}).Observe(time.Since(timeStart).Seconds() * 1000)
+				prometheusSummaryVec.With(prometheus.Labels{"handler": pattern, "method": method, "httpCode": httpCode}).Observe(time.Since(timeStart).Seconds() * 1000)
 			}
 		}(time.Now())
 
@@ -55,12 +54,15 @@ func main() {
 			select {
 			case <-stopChannel:
 				break myLoop
+			case <-ctx.Done():
+				httpCode = "408"
+				return
 			default:
 				time.Sleep(time.Microsecond * 5)
 			}
 		}
 
-		log.Println("world", *delay)
+		httpCode = "200"
 		fmt.Fprintf(w, "world")
 	})
 
