@@ -6,8 +6,10 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
+	"github.com/afex/hystrix-go/hystrix"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -49,27 +51,30 @@ func main() {
 		}(time.Now())
 
 		client := http.DefaultClient
-		req, err := http.NewRequest("GET", "http://service-b:2222/hello", nil)
-		if err != nil {
-			httpCode = "500"
-			return
-		}
-		req = req.WithContext(ctx)
-		errChan := make(chan error)
+
+		hystrix.ConfigureCommand("getWorld", hystrix.CommandConfig{
+			Timeout:               2000,
+			MaxConcurrentRequests: 100,
+			ErrorPercentThreshold: 25,
+		})
 		respChan := make(chan *http.Response)
-		go func() {
+		errChan := hystrix.Go("getWorld", func() error {
+			req, err := http.NewRequest("GET", "http://service-b:2222/hello", nil)
+			if err != nil {
+				return err
+			}
+			req = req.WithContext(ctx)
 			resp, err := client.Do(req)
 			if err != nil {
-				errChan <- err
-			} else {
-				respChan <- resp
+				return err
 			}
-		}()
+			respChan <- resp
 
+			return nil
+		}, nil)
 		select {
-		case err := <-errChan:
-			httpCode = "500"
-			log.Println(err)
+		case <-ctx.Done():
+			httpCode = "408"
 		case resp := <-respChan:
 			defer resp.Body.Close()
 			body, err := ioutil.ReadAll(resp.Body)
@@ -79,8 +84,19 @@ func main() {
 			}
 			httpCode = "200"
 			fmt.Fprintf(w, string(body))
-		case <-ctx.Done():
-			httpCode = "408"
+		case err := <-errChan:
+			if err == nil {
+				httpCode = "200"
+			} else if err == hystrix.ErrCircuitOpen || err == hystrix.ErrMaxConcurrency {
+				httpCode = "503"
+			} else if err == hystrix.ErrTimeout {
+				httpCode = "408"
+			} else {
+				httpCode = "500"
+			}
+			if err != nil {
+				fmt.Fprintln(os.Stderr, "ERROR:", err)
+			}
 		}
 	})
 
